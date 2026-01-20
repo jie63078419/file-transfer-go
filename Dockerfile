@@ -18,6 +18,7 @@ RUN rm -rf .next out
 
 # 前端依赖和构建
 COPY chuan-next/package.json chuan-next/yarn.lock ./
+RUN yarn config set registry https://registry.npmmirror.com/
 RUN yarn install --frozen-lockfile --network-timeout 300000
 
 # 临时移除 API 目录进行 SSG 构建（模拟 build-fullstack.sh 的 build_frontend 函数）
@@ -45,6 +46,7 @@ COPY . .
 
 # Go 依赖
 COPY go.mod go.sum ./
+ENV GOPROXY=https://goproxy.cn,direct
 RUN go mod download
 
 # 拷贝前端构建结果
