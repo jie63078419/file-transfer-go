@@ -25,13 +25,7 @@ export default function Hero() {
           <span className="font-medium">我的主页</span>
         </a>
 
-        <Link 
-          href="/help"
-          className="inline-flex items-center gap-1 px-3 py-1.5 text-xs sm:text-sm text-blue-600 hover:text-blue-800 bg-blue-50 hover:bg-blue-100 rounded-full transition-colors duration-200 border border-blue-200 hover:border-blue-300"
-        >
-          <HelpCircle className="w-3 h-3 sm:w-4 sm:h-4" />
-          <span className="font-medium">使用帮助</span>
-        </Link>
+     
       </div>
   
       
