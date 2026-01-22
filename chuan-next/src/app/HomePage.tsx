@@ -1,5 +1,6 @@
 "use client";
 
+import { useEffect, useRef } from 'react'; // 新增：用于保存WebSocket实例和定时器（避免重渲染丢失）
 import DesktopShare from '@/components/DesktopShare';
 import Footer from '@/components/Footer';
 import Hero from '@/components/Hero';
@@ -38,9 +39,74 @@ export default function HomePage() {
   } = useWebRTCSupport();
 
 
+  // ---------------------- 新增：WebSocket 心跳+重连逻辑 ----------------------
+  // 用useRef保存WebSocket实例和定时器（避免组件重渲染丢失状态）
+  const wsRef = useRef<WebSocket | null>(null);
+  const heartbeatTimerRef = useRef<NodeJS.Timeout | null>(null);
+  const RECONNECT_INTERVAL = 5000; // 断连后5秒自动重连
+  const HEARTBEAT_INTERVAL = 30000; // 每30秒发一次心跳（防公网连接闲置断开）
+
+  // 初始化WebSocket（含心跳、重连）
+  const initWebSocket = () => {
+    // 关闭旧连接（避免重复连接）
+    if (wsRef.current) {
+      wsRef.current.close();
+      wsRef.current = null;
+    }
+
+    // 获取环境变量中的WebSocket地址（需确保.env.production已配置）
+    const wsUrl = process.env.NEXT_PUBLIC_WS_URL;
+    if (!wsUrl) {
+      console.error("错误：未配置WebSocket地址（NEXT_PUBLIC_WS_URL）");
+      return;
+    }
+
+    // 创建新WebSocket连接
+    wsRef.current = new WebSocket(wsUrl);
+
+    // 连接成功：启动心跳保活
+    wsRef.current.onopen = () => {
+      console.log("WebSocket已连接");
+      // 清除旧心跳定时器
+      if (heartbeatTimerRef.current) clearInterval(heartbeatTimerRef.current);
+      // 启动新心跳（每30秒发一个空消息，维持连接）
+      heartbeatTimerRef.current = setInterval(() => {
+        if (wsRef.current?.readyState === WebSocket.OPEN) {
+          wsRef.current.send(JSON.stringify({ type: "heartbeat" }));
+        }
+      }, HEARTBEAT_INTERVAL);
+    };
+
+    // 连接断开：自动重连
+    wsRef.current.onclose = (e) => {
+      console.log(`WebSocket断开（代码：${e.code}），${RECONNECT_INTERVAL/1000}秒后重连`);
+      // 清除心跳定时器
+      if (heartbeatTimerRef.current) clearInterval(heartbeatTimerRef.current);
+      // 延迟重连
+      setTimeout(initWebSocket, RECONNECT_INTERVAL);
+    };
+
+    // 连接错误：打印日志并触发重连
+    wsRef.current.onerror = (e) => {
+      console.error("WebSocket错误：", e);
+      wsRef.current?.close();
+    };
+  };
+
+  // 组件加载时初始化WebSocket，卸载时清理资源
+  useEffect(() => {
+    initWebSocket();
+    // 组件卸载（页面关闭/跳转）时，清理WebSocket和定时器
+    return () => {
+      if (heartbeatTimerRef.current) clearInterval(heartbeatTimerRef.current);
+      if (wsRef.current) wsRef.current.close();
+    };
+  }, []);
+  // ---------------------- WebSocket 逻辑结束 ----------------------
+
+
   // 处理Tabs组件的字符串参数
   const handleTabChangeWrapper = (value: string) => {
-    // 类型转换并调用实际的处理函数
     handleTabChange(value as TabType);
   };
 
